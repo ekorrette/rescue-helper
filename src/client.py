@@ -17,15 +17,19 @@ default_addrs = [
 
 
 def get_data():
-    return json.loads(requests.get('http://9272-188-39-25-218.ngrok.io/data').content)
+    return requests.get('http://9272-188-39-25-218.ngrok.io/data').content
 
 
 def address_plot_data(datapoints):
+    datapoints = datapoints.copy()
     ok = []
     for key, value in datapoints.items():
         try:
             gc = geolocator.geocode(value['address'])
-        except ValueError:
+            value = value.copy()
+            value['capacity'] = int(value['capacity'])
+            assert value['capacity'] > 0
+        except (ValueError, AssertionError):
             pass
         else:
             if gc is not None:
@@ -43,13 +47,23 @@ def address_plot_data(datapoints):
     return clustering, data
 
 
-colors = px.colors.qualitative.Dark24
+def plot_loop():
+    colors = px.colors.qualitative.Dark24
+    last_raw = None
+    while raw := get_data():
+        if last_raw != raw:
+            cl, df = address_plot_data(json.loads(raw))
+            fig = px.scatter_mapbox(
+                df, lat='lat', lon='lon', hover_name='name', custom_data=['address'],
+                color=[colors[l % len(colors)] for l in cl.labels_],
+                zoom=16, size=6*df['capacity']**.5
+            )
+            fig.update_layout(mapbox_style="basic")
+            fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+            fig.show()
+        last_raw = raw
+        time.sleep(5)
 
-while True:
-    cl, df = address_plot_data(get_data())
-    fig = px.scatter_mapbox(df, lat='lat', lon='lon', hover_name='name', custom_data=['address'],
-                            color=[colors[l % len(colors)] for l in cl.labels_], zoom=16, size=6*df['capacity'])
-    fig.update_layout(mapbox_style="basic")
-    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
-    fig.show()
-    time.sleep(5)
+
+if __name__ == '__main__':
+    plot_loop()
