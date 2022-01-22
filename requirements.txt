@@ -1,0 +1,6 @@
+flask
+geopy
+scikit-learn
+twilio
+pandas
+plotly
