@@ -47,7 +47,7 @@ def sms_survey():
             if (cap <= 0):
                 response.message("Please enter a valid number.\n\nHow many people are stranded there?")
             else:
-                log[from_number]['capacity'] = request.values.get('Body')
+                log[from_number]['capacity'] = cap
                 data[from_number] = log.pop(from_number)
         except:
             response.message("Please enter a valid number.\n\nHow many people are stranded there?")
