@@ -3,4 +3,4 @@ geopy
 scikit-learn
 twilio
 pandas
-plotly
+dash
