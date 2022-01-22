@@ -5,7 +5,11 @@ import planner
 
 geolocator = geopy.geocoders.Nominatim(user_agent='sendhelp')
 
-addrs = ['4 Trinity Lane Cambridge', 'North Paddock Cambridge', 'Cambridge South Paddock', 'Cambridge Bridge Street 12', 'Cambridge 12 Round Church']
+addrs = [
+    '4 Trinity Lane Cambridge', 'North Paddock Cambridge', 'Cambridge South Paddock',
+    'Cambridge Cambridge Bridge Street 12 UK', 'Cambridge 12 Round Church Street'
+]
+
 gcs = [geolocator.geocode(addr) for addr in addrs]
 
 df = pd.DataFrame({'lat': gc.latitude, 'lon': gc.longitude, 'address': gc.address} for gc in gcs)
@@ -14,7 +18,7 @@ cl = planner.cluster(df[["lat", "lon"]], 3)
 k = len(cl.cluster_centers_)
 
 
-px.set_mapbox_access_token(open("../.mapbox_token").read())
+px.set_mapbox_access_token(open("../secret/mapbox_token").read())
 
 colors = px.colors.qualitative.Dark24
 fig = px.scatter_mapbox(df, lat="lat", lon="lon", hover_name="address",
