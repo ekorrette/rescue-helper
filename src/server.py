@@ -5,7 +5,7 @@ from twilio.twiml.messaging_response import MessagingResponse
 #from dotenv import load_dotenv
 import os
 
-DEEPGRAM_API_KEY = open('../secret/deepgram_key').read()
+#DEEPGRAM_API_KEY = open('../secret/deepgram_key').read()
 
 app = Flask(__name__)
 
