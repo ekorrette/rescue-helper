@@ -12,6 +12,13 @@ app = Flask(__name__)
 app.secret_key = os.urandom(12)
 data = {}
 
+
+@app.route("/data", methods=['GET'])
+def database():
+    """Return address database"""
+    return data
+
+
 @app.route("/voice", methods=['GET', 'POST'])
 def voice():
     """Respond to incoming phone calls with a 'Hello world' message"""
