@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Rescue info</title>
+</head>
+<body>
+
+    {% if message %}
+        <p>{{ message }}</p>
+    {% endif %}
+
+    <form action="" method="post">
+        <p>
+            <label for="number">number</label>
+            <input type="text" name="number">
+        </p>
+        <p>
+            <label for="address">address</label>
+            <input type="text" name="address">
+        </p>
+        <p>
+            <label for="capacity">capacity</label>
+            <input type="text" name="capacity">
+        </p>
+        <p>
+            <input type="submit">
+        </p>
+    </form>
+
+</body>
+</html>
+

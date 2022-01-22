@@ -1,4 +1,4 @@
-from flask import Flask, request, url_for, redirect
+from flask import Flask, request, url_for, redirect, render_template
 from twilio.twiml.voice_response import VoiceResponse
 from twilio.twiml.messaging_response import MessagingResponse
 
@@ -8,7 +8,7 @@ import os
 app = Flask(__name__)
 
 app.secret_key = os.urandom(12)
-data = {}
+data = {'number': {'address': 'am here', 'capacity': '42'}}
 
 
 @app.route("/data", methods=['GET'])
@@ -50,6 +50,23 @@ def sms_survey():
         response.message(("Address: {}\nCapacity: {}").format(data[from_number]['address'], data[from_number]['capacity']))
 
     return str(response)
+
+
+@app.route("/web", methods=['POST', 'GET'])
+def web():
+    message = ''
+    if request.method == 'POST':
+        number = request.form.get('number')  # access the data inside 
+        address = request.form.get('address')
+        capacity = request.form.get('capacity')
+        data[number] = {'address': address, 'capacity': capacity}
+
+        
+        message = 'submitted'
+
+    return render_template('webform.html', message=message)
+
+
 
 
 if __name__ == "__main__":
