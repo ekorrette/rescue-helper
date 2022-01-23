@@ -1,14 +1,15 @@
-from flask import Flask, request, url_for, redirect, render_template
+from flask import Flask, request, render_template
 from twilio.twiml.voice_response import VoiceResponse
 from twilio.twiml.messaging_response import MessagingResponse
-from deepgram import Deepgram
-import json, requests, asyncio
+import json
+import openai
 
 import http.client
 
 import os
 
 DEEPGRAM_API_KEY = open('secret/deepgram_key').read().strip()
+openai.api_key = open("secret/openai_key").read().strip()
 
 app = Flask(__name__)
 
@@ -140,8 +141,10 @@ def web():
 
 @app.route("/test", methods=['POST', 'GET'])
 def test():
-    url = 'https://api.twilio.com/2010-04-01/Accounts/ACcfef691231a0b455b289bdd859eefd71/Recordings/RE50532561317f075f7e0c33c69d68ca4b' + '.wav'
-    process(url)
+    url = 'https://api.twilio.com/2010-04-01/Accounts/ACcfef691231a0b455b289bdd859eefd71/Recordings/RE0f8ab886b7428c8419e10fb000cd4b44' + '.wav'
+    number = '1234'
+    log[number] = {'address': None, 'capacity': None}
+    process(url, number, 'address')
     return ''
 
 
@@ -152,12 +155,22 @@ def process(url, number, key):
         'content-type': "application/json",
         'Authorization': "Token " + DEEPGRAM_API_KEY
     }
-    print(payload)
     conn.request("POST", "/v1/listen?numerals=true", payload, headers)
 
     res = conn.getresponse()
     transcript = json.loads(res.read().decode("utf-8"))['results']['channels'][0]['alternatives'][0]['transcript']
-    print(transcript)
+    print("raw: ", transcript)
+    if key == 'address':
+        transcript = openai.Completion.create(
+            engine='text-davinci-001',
+            prompt='this is an incorrect transcript of an address: \"' + transcript + '\"\nthe corrected address is:',
+            temperature=0.7,
+            max_tokens=64,
+            top_p=1,
+            frequency_penalty=0,
+            presence_penalty=0
+        )
+        print("after gpt: ", transcript)
     log[number][key] = transcript
 
 
