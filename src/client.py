@@ -36,7 +36,7 @@ def address_plot_data(datapoints):
                 value = value.copy()
                 value['gc'] = gc
                 value['name'] = key
-                print(value)
+                print(gc.raw, value)
                 ok.append(value)
     data = pd.DataFrame({
         'lat': d['gc'].latitude, 'lon': d['gc'].longitude,
