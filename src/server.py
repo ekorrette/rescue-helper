@@ -1,8 +1,11 @@
+from string import ascii_uppercase
+
 from flask import Flask, request, render_template
 from twilio.twiml.voice_response import VoiceResponse
 from twilio.twiml.messaging_response import MessagingResponse
 import json
 import openai
+import sqlite3
 
 import http.client
 
@@ -11,26 +14,15 @@ import os
 DEEPGRAM_API_KEY = open('secret/deepgram_key').read().strip()
 openai.api_key = open("secret/openai_key").read().strip()
 
+con = sqlite3.connect('database.db')
+cur = con.cursor()
+
 app = Flask(__name__)
 
 URL = "https://9272-188-39-25-218.ngrok.io/"
 
 app.secret_key = os.urandom(12)
 log = {}
-data = {
-    "1": {
-        "address": "1 Grange Road, CB3 9AS, Cambridge",
-        "capacity": "6"
-    },
-    "2": {
-        "address": "3 Grange Road, CB3 9AS, Cambridge",
-        "capacity": "3"
-    },
-    "3": {
-        "address": "Selwyn College, CB3 9DQ",
-        "capacity": "23"
-    }
-}
 
 
 @app.route("/data", methods=['GET'])
@@ -41,13 +33,11 @@ def database():
 
 @app.route("/voice", methods=['GET', 'POST'])
 def voice():
-    """Respond to incoming phone calls with a 'Hello world' message"""
-    # Start our TwiML response
+    """Respond to incoming phone calls and ask for the address"""
     resp = VoiceResponse()
     number = request.values.get("From")
     log[number] = {'address': None, 'capacity': None}
 
-    # Read a message aloud to the caller
     resp.say("Please enter your home number, street and city. Then press any key.", voice='alice')
     resp.record(action=URL + 'address/' + number,
                 recordingStatusCallback=URL + "completed/address/" + number)
@@ -57,6 +47,7 @@ def voice():
 
 @app.route("/address/<number>", methods=['GET', 'POST'])
 def address(number):
+    """Continue after getting the address and ask for the number of people."""
     resp = VoiceResponse()
     resp.say("How many people are stranded there?", voice='alice')
     resp.record(action=URL + 'thanks',
@@ -67,6 +58,7 @@ def address(number):
 
 @app.route("/thanks", methods=['GET', 'POST'])
 def thanks():
+    """Say thanks after getting the information."""
     resp = VoiceResponse()
     resp.say("thanks", voice='alice')
     return str(resp)
@@ -74,6 +66,7 @@ def thanks():
 
 @app.route("/completed/address/<number>", methods=['GET', 'POST'])
 def address_completed(number):
+    """Process the recorded response with the address."""
     print(request.values)
     url = request.values.get('RecordingUrl') + '.wav'
     print(url)
@@ -83,16 +76,18 @@ def address_completed(number):
 
 @app.route("/completed/capacity/<number>", methods=['GET', 'POST'])
 def capacity_completed(number):
+    """Process the recorded response with the number of people."""
     print(request.values)
     url = request.values.get('RecordingUrl') + '.wav'
     print(url)
     process(url, number, 'capacity')
-    data[number] = log.pop(number)
+    commit_log(number)
     return ''
 
 
 @app.route("/sms", methods=['GET', 'POST'])
 def sms_survey():
+    """Handle sms requests."""
     response = MessagingResponse()
     from_number = request.values.get('From')
 
@@ -112,7 +107,7 @@ def sms_survey():
                 response.message("Please enter a valid number.\n\nHow many people are stranded there?")
             else:
                 log[from_number]['capacity'] = cap
-                data[from_number] = log.pop(from_number)
+                commit_log(from_number)
         except:
             response.message("Please enter a valid number.\n\nHow many people are stranded there?")
 
@@ -128,9 +123,10 @@ def sms_survey():
 
 @app.route("/web", methods=['POST', 'GET'])
 def web():
+    """For testing. Handle web requests."""
     message = ''
     if request.method == 'POST':
-        number = request.form.get('number')  # access the data inside 
+        number = request.form.get('number')
         address = request.form.get('address')
         capacity = request.form.get('capacity')
         data[number] = {'address': address, 'capacity': capacity}
@@ -141,6 +137,7 @@ def web():
 
 @app.route("/test", methods=['POST', 'GET'])
 def test():
+    """Testing processing of a sample voice recording of an address."""
     url = 'https://api.twilio.com/2010-04-01/Accounts/ACcfef691231a0b455b289bdd859eefd71/Recordings' \
           '/RE0f8ab886b7428c8419e10fb000cd4b44' + '.wav '
     number = '1234'
@@ -149,14 +146,23 @@ def test():
     return ''
 
 
+def commit_log(number):
+    cur.execute('INSERT INTO data VALUES (?, ?, ?)',
+                (number, log[number]['address'], log[number]['capacity']))
+    con.commit()
+    log.pop(number)
+
+
 def process(url, number, key):
+    """Process an url with a voice recording of a [address,capacity] from the number."""
     conn = http.client.HTTPSConnection("api.deepgram.com")
     payload = '{\"url\":\"' + url + '\"}'
     headers = {
         'content-type': "application/json",
         'Authorization': "Token " + DEEPGRAM_API_KEY
     }
-    conn.request("POST", "/v1/listen?numerals=true", payload, headers)
+    keywords = '&'.join('keywords='+l+':2' for l in ascii_uppercase)
+    conn.request("POST", "/v1/listen?numerals=true&" + keywords, payload, headers)
 
     res = conn.getresponse()
     transcript = json.loads(res.read().decode("utf-8"))['results']['channels'][0]['alternatives'][0]['transcript']
@@ -164,11 +170,13 @@ def process(url, number, key):
     if key == 'address':
         transcript = openai.Completion.create(
             engine='text-davinci-001',
-            prompt='This is an incorrect transcript of a UK address: \"' + transcript
-                   + '\"\nThe correct address with a corrected street name and matching post code is:',
-            temperature=0.0,
-            max_tokens=64,
-            top_p=1,
+            prompt='Incorrect transcript of an address: churchill college c d. Street zero s\n' +
+            'The corrected address is: Churchill College, CB3 0DS\n' +
+            'Incorrect transcript of an address: ' + transcript
+                   + '\nThe correct address is:',
+            temperature=0.5,
+            max_tokens=30,
+            best_of=5,
             frequency_penalty=0,
             presence_penalty=0
         )["choices"][0]["text"].strip()
