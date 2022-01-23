@@ -48,7 +48,7 @@ def voice():
     log[number] = {'address': None, 'capacity': None}
 
     # Read a message aloud to the caller
-    resp.say("Please enter your address and press any key.", voice='alice')
+    resp.say("Please enter your home number, street and city. Then press any key.", voice='alice')
     resp.record(action=URL+'address/'+number,
             recordingStatusCallback=URL+"completed/address/"+number)
 
@@ -163,13 +163,13 @@ def process(url, number, key):
     if key == 'address':
         transcript = openai.Completion.create(
             engine='text-davinci-001',
-            prompt='this is an incorrect transcript of an address: \"' + transcript + '\"\nthe corrected address is:',
-            temperature=0.7,
+            prompt='This is an incorrect transcript of a UK address: \"' + transcript + '\"\nThe correct address with a corrected street name and matching post code is:',
+            temperature=0.0,
             max_tokens=64,
             top_p=1,
             frequency_penalty=0,
             presence_penalty=0
-        )
+        )["choices"][0]["text"].strip()
         print("after gpt: ", transcript)
     log[number][key] = transcript
 
