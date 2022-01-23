@@ -6,18 +6,31 @@ import json, requests, asyncio
 
 import http.client
 
-#from dotenv import load_dotenv
 import os
 
-DEEPGRAM_API_KEY = open('../secret/deepgram_key').read().strip()
+DEEPGRAM_API_KEY = open('secret/deepgram_key').read().strip()
 
 app = Flask(__name__)
 
-URL = "http://9272-188-39-25-218.ngrok.io/"
+URL = "https://9272-188-39-25-218.ngrok.io/"
 
 app.secret_key = os.urandom(12)
 log = {}
-data = {}
+data = {
+  "1": {
+    "address": "1 Grange Road, CB3 9AS, Cambridge", 
+    "capacity": "6"
+  }, 
+  "2": {
+    "address": "3 Grange Road, CB3 9AS, Cambridge", 
+    "capacity": "3"
+  }, 
+  "3": {
+    "address": "Selwyn College, CB3 9DQ", 
+    "capacity": "23"
+  }
+}
+
 
 @app.route("/data", methods=['GET'])
 def database():
@@ -30,13 +43,26 @@ def voice():
     """Respond to incoming phone calls with a 'Hello world' message"""
     # Start our TwiML response
     resp = VoiceResponse()
+    number = request.values.get("From")
+    log[number] = {'address': None, 'capacity': None}
 
     # Read a message aloud to the caller
-    resp.say("hello world! say the stuff and press a key.", voice='alice')
-    resp.record(action=URL+'thanks',
-            recordingStatusCallback=URL+"completed")
+    resp.say("Please enter your address and press any key.", voice='alice')
+    resp.record(action=URL+'address/'+number,
+            recordingStatusCallback=URL+"completed/address/"+number)
 
     return str(resp)
+
+
+@app.route("/address/<number>", methods=['GET', 'POST'])
+def address(number):
+    resp = VoiceResponse()
+    resp.say("How many people are stranded there?", voice='alice')
+    resp.record(action=URL+'thanks',
+            recordingStatusCallback=URL+"completed/capacity/"+number)
+
+    return str(resp)
+
 
 @app.route("/thanks", methods=['GET', 'POST'])
 def thanks():
@@ -45,16 +71,23 @@ def thanks():
     return str(resp)
 
 
-@app.route("/completed", methods=['GET', 'POST'])
-def record_completed():
+@app.route("/completed/address/<number>", methods=['GET', 'POST'])
+def address_completed(number):
     print(request.values)
     url = request.values.get('RecordingUrl') + '.wav'
     print(url)
-    process(url)
+    process(url, number, 'address')
+    return ''
 
-    resp = VoiceResponse()
-    resp.say("your response has been processed", voice='alice')
-    return str(resp)
+
+@app.route("/completed/capacity/<number>", methods=['GET', 'POST'])
+def capacity_completed(number):
+    print(request.values)
+    url = request.values.get('RecordingUrl') + '.wav'
+    print(url)
+    process(url, number, 'capacity')
+    data[number] = log.pop(number)
+    return ''
 
 
 @app.route("/sms", methods=['GET', 'POST'])
@@ -104,13 +137,15 @@ def web():
 
     return render_template('webform.html', message=message)
 
+
 @app.route("/test", methods=['POST', 'GET'])
 def test():
     url = 'https://api.twilio.com/2010-04-01/Accounts/ACcfef691231a0b455b289bdd859eefd71/Recordings/RE50532561317f075f7e0c33c69d68ca4b' + '.wav'
     process(url)
     return ''
 
-def process(url):
+
+def process(url, number, key):
     conn = http.client.HTTPSConnection("api.deepgram.com")
     payload = '{\"url\":\"' + url + '\"}'
     headers = {
@@ -118,13 +153,12 @@ def process(url):
         'Authorization': "Token " + DEEPGRAM_API_KEY
     }
     print(payload)
-    conn.request("POST", "/v1/listen", payload, headers)
+    conn.request("POST", "/v1/listen?numerals=true", payload, headers)
 
     res = conn.getresponse()
-    data = res.read()
-    transcript = json.loads(data.decode("utf-8"))['results']['channels'][0]['alternatives'][0]['transcript']
+    transcript = json.loads(res.read().decode("utf-8"))['results']['channels'][0]['alternatives'][0]['transcript']
     print(transcript)
-
+    log[number][key] = transcript
 
 
 if __name__ == "__main__":
