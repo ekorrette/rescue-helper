@@ -14,9 +14,6 @@ import os
 DEEPGRAM_API_KEY = open('secret/deepgram_key').read().strip()
 openai.api_key = open("secret/openai_key").read().strip()
 
-con = sqlite3.connect('database.db')
-cur = con.cursor()
-
 app = Flask(__name__)
 
 URL = "https://9272-188-39-25-218.ngrok.io/"
@@ -28,7 +25,10 @@ log = {}
 @app.route("/data", methods=['GET'])
 def database():
     """Return address database"""
-    return data
+    con = sqlite3.connect('database.db')
+    cur = con.cursor()
+    cur.execute('SELECT * FROM data')
+    return {a: {'address': b, 'capacity': c} for a, b, c in cur.fetchall()}
 
 
 @app.route("/voice", methods=['GET', 'POST'])
@@ -116,7 +116,7 @@ def sms_survey():
                           "Phone Number: {}\n"
                           "Address: {}\n"
                           "Number of People: {}").format(
-            from_number, data[from_number]['address'], data[from_number]['capacity']))
+            from_number, data(from_number,'address'), data(from_number,'capacity')))
 
     return str(response)
 
@@ -129,7 +129,8 @@ def web():
         number = request.form.get('number')
         address = request.form.get('address')
         capacity = request.form.get('capacity')
-        data[number] = {'address': address, 'capacity': capacity}
+        log[number] = {'address': address, 'capacity': capacity}
+        commit_log(number)
         message = 'submitted'
 
     return render_template('webform.html', message=message)
@@ -146,7 +147,15 @@ def test():
     return ''
 
 
+def data(number, key):
+    con = sqlite3.connect('database.db')
+    cur = con.cursor()
+    cur.execute('SELECT ' + key + ' FROM data WHERE number = ' + number)
+    return cur.fetchall()[0]
+
 def commit_log(number):
+    con = sqlite3.connect('database.db')
+    cur = con.cursor()
     cur.execute('INSERT INTO data VALUES (?, ?, ?)',
                 (number, log[number]['address'], log[number]['capacity']))
     con.commit()
