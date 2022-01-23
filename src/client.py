@@ -7,13 +7,30 @@ import json
 import planner
 
 geolocator = geopy.geocoders.Nominatim(user_agent='sendhelp')
-px.set_mapbox_access_token(open("../secret/mapbox_token").read())
+px.set_mapbox_access_token("pk.eyJ1IjoiamtiNTUiLCJhIjoiY2t5cWQ0djAzMDFyMTJvcWEzMDZ3b2ozaiJ9.dv9cQlTkBGLkz3ptAdv_Bg")
 
-default_addrs = [
-    '4 Trinity Lane Cambridge', 'North Paddock Cambridge', 'Cambridge South Paddock',
-    'Cambridge Cambridge Bridge Street 12 UK', 'Cambridge 12 Round Church Street',
-    '1 Grange Road CB2 9AS'
-]
+default_addrs = """{
+  "1": {
+    "address": "1 Grange Road, CB3 9AS, Cambridge",
+    "capacity": "6"
+  },
+  "32": {
+    "address": "Newnham College, CB3 9DF",
+    "capacity": "7"
+  },
+  "6969": {
+    "address": "3 Grange Road, CB3 9AS, Cambridge",
+    "capacity": "7"
+  },
+  "8989": {
+    "address": "Gonville & Caius, Trinity St., CB2 1TA",
+    "capacity": "14"
+  },
+  "number": {
+    "address": "CB30DS",
+    "capacity": "4"
+  }
+}"""
 
 
 def get_data():
@@ -53,12 +70,17 @@ def plot_loop():
     while raw := get_data():
         if last_raw != raw:
             cl, df = address_plot_data(json.loads(raw))
+            df['color']=[colors[l % len(colors)] for l in cl.labels_]
+            df['size'] = 6 * df['capacity'] ** .5
             fig = px.scatter_mapbox(
-                df, lat='lat', lon='lon', hover_name='name', custom_data=['address'],
-                color=[colors[l % len(colors)] for l in cl.labels_],
-                zoom=16, size=6*df['capacity']**.5
+                df, lat='lat', lon='lon', hover_name='address',
+                hover_data={'capacity':True, 'lat':True, 'lon':True, 'size':False, 'color':False},
+                color='color',
+                labels={'address':'address'},
+                zoom=16, size='size'
             )
             fig.update_layout(mapbox_style="basic")
+            fig.update_layout(showlegend=False)
             fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
             fig.show()
         last_raw = raw
