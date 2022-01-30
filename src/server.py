@@ -91,38 +91,37 @@ def sms_survey():
     response = MessagingResponse()
     from_number = request.values.get('From')
 
-    if from_number not in data.keys():
-        if from_number not in log.keys():
-            response.message("Please enter your address.")
-            log[from_number] = {'address': None, 'capacity': None}
+    if from_number not in log.keys():
+        response.message("Please enter your address.")
+        log[from_number] = {'address': None, 'capacity': None}
 
-        elif log[from_number]['address'] is None:
-            log[from_number]['address'] = request.values.get('Body')
-            response.message("How many people are stranded there?")
+    elif log[from_number]['address'] is None:
+        log[from_number]['address'] = request.values.get('Body')
+        response.message("How many people are stranded there?")
 
-        elif log[from_number]['capacity'] is None:
-            cap = request.values.get('Body')
-            try:
-                cap = int(cap)
-                if cap <= 0:
-                    response.message("Please enter a valid number.\n\nHow many people are stranded there?")
-                else:
-                    log[from_number]['capacity'] = cap
-                    commit_log(from_number)
-                    response.message(("Thank you for your response.\n\n"
-                                      "Phone Number: {}\n"
-                                      "Address: {}\n"
-                                      "Number of People: {}").format(
-                        from_number, data(from_number,'address'), data(from_number,'capacity')))
-            except:
+    elif log[from_number]['capacity'] is None:
+        cap = request.values.get('Body')
+        try:
+            cap = int(cap)
+            if cap <= 0:
                 response.message("Please enter a valid number.\n\nHow many people are stranded there?")
+            else:
+                log[from_number]['capacity'] = cap
+                commit_log(from_number)
+                response.message(("Thank you for your response.\n\n"
+                                  "Phone Number: {}\n"
+                                  "Address: {}\n"
+                                  "Number of People: {}").format(
+                    from_number, data(from_number, 'address'), data(from_number, 'capacity')))
+        except:
+            response.message("Please enter a valid number.\n\nHow many people are stranded there?")
 
     else:
         response.message(("Thank you for your response.\n\n"
                           "Phone Number: {}\n"
                           "Address: {}\n"
                           "Number of People: {}").format(
-            from_number, data(from_number,'address'), data(from_number,'capacity')))
+            from_number, data(from_number, 'address'), data(from_number, 'capacity')))
 
     return str(response)
 
@@ -159,6 +158,7 @@ def data(number, key):
     cur.execute('SELECT ' + key + ' FROM data WHERE number = ' + number)
     return cur.fetchall()[0]
 
+
 def commit_log(number):
     con = sqlite3.connect('database.db')
     cur = con.cursor()
@@ -176,7 +176,7 @@ def process(url, number, key):
         'content-type': "application/json",
         'Authorization': "Token " + DEEPGRAM_API_KEY
     }
-    keywords = '&'.join('keywords='+l+':2' for l in ascii_uppercase)
+    keywords = '&'.join('keywords=' + l + ':2' for l in ascii_uppercase)
     conn.request("POST", "/v1/listen?numerals=true&" + keywords, payload, headers)
 
     res = conn.getresponse()
@@ -185,9 +185,11 @@ def process(url, number, key):
     if key == 'address':
         transcript = openai.Completion.create(
             engine='text-davinci-001',
-            prompt='Incorrect transcript of an address: churchill college c d. Street zero s\n' +
-            'The corrected address is: Churchill College, CB3 0DS\n' +
-            'Incorrect transcript of an address: ' + transcript
+            prompt='the transcribed message is: "there is a flood at corn exchange take us from here"\n' +
+                   'the mentioned address is: Corn Exchange, Cambridge\n' +
+                   'the transcribed message is: churchill college c d. Street zero s\n' +
+                   'the corrected address is: Churchill College, CB3 0DS\n' +
+                   'the transcribed message is: ' + transcript
                    + '\nThe correct address is:',
             temperature=0.5,
             max_tokens=30,
